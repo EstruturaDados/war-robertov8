@@ -1,13 +1,14 @@
 // ============================================================================
 //         PROJETO WAR ESTRUTURADO - DESAFIO DE CÓDIGO
-//         NÍVEL AVENTUREIRO: Batalhas Estratégicas
+//         NÍVEL MESTRE: Missões e Modularização Total
 // ============================================================================
 //
-// OBJETIVOS DO NÍVEL AVENTUREIRO:
-// - Substituir vetor estático por alocação dinâmica com calloc
-// - Criar função para simular ataques entre dois territórios
-// - Utilizar números aleatórios para representar dados de batalha
-// - Implementar laço interativo para batalhas
+// OBJETIVOS DO NÍVEL MESTRE:
+// - Dividir o código em funções bem definidas (modularização total)
+// - Implementar um sistema de missões aleatórias
+// - Verificar cumprimento da missão
+// - Aplicar boas práticas (uso de const, passagem por referência, etc.)
+// - Inicialização automática dos territórios
 //
 // ============================================================================
 
@@ -29,21 +30,29 @@ typedef struct {
 } Territorio;
 
 // --- Protótipos das Funções ---
+// Funções de setup e gerenciamento de memória:
 Territorio* alocarMapa(int quantidade);
-void cadastrarTerritorios(Territorio territorios[], int quantidade);
-void exibirMapa(const Territorio territorios[], int quantidade);
+void inicializarTerritorios(Territorio territorios[], int quantidade);
+void liberarMemoria(Territorio *territorios);
+
+// Funções de interface com o usuário:
 void exibirMenuPrincipal();
+void exibirMapa(const Territorio territorios[], int quantidade);
+void exibirMissao(int idMissao);
+
+// Funções de lógica principal do jogo:
 void faseDeAtaque(Territorio territorios[], int quantidade);
 void simularAtaque(Territorio territorios[], int atacante, int defensor);
-void liberarMemoria(Territorio *territorios);
+int sortearMissao();
+int verificarVitoria(const Territorio territorios[], int quantidade, int idMissao, const char *corJogador);
+
+// Função utilitária:
 void limparBufferEntrada();
 
 // --- Função Principal (main) ---
 int main() {
-    // Configura o locale para português
+    // 1. Configuração Inicial (Setup)
     setlocale(LC_ALL, "Portuguese");
-    
-    // Inicializa a semente para números aleatórios
     srand(time(NULL));
     
     // Aloca dinamicamente a memória para os territórios
@@ -55,18 +64,37 @@ int main() {
     
     // Exibe cabeçalho do programa
     printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║      🗺️  DESAFIO WAR ESTRUTURADO - NÍVEL AVENTUREIRO 🗺️      ║\n");
-    printf("║                   Batalhas Estratégicas                        ║\n");
+    printf("║        🗺️  DESAFIO WAR ESTRUTURADO - NÍVEL MESTRE 🗺️         ║\n");
+    printf("║              Missões e Modularização Total                     ║\n");
     printf("╚════════════════════════════════════════════════════════════════╝\n\n");
     
-    // Cadastra os dados dos territórios
-    cadastrarTerritorios(mapa, NUM_TERRITORIOS);
+    // Inicializa os territórios automaticamente
+    inicializarTerritorios(mapa, NUM_TERRITORIOS);
     
-    // Laço principal do jogo
+    // Define a cor do jogador
+    char corJogador[TAM_STRING] = "Azul";
+    printf("🎮 Você está jogando com o exército: %s\n\n", corJogador);
+    
+    // Sorteia a missão secreta do jogador
+    int missao = sortearMissao();
+    printf("📜 Sua missão foi definida!\n");
+    printf("   Use a opção [2] no menu para visualizar sua missão.\n\n");
+    
+    printf("⏸️  Pressione ENTER para iniciar o jogo...");
+    getchar();
+    printf("\n");
+    
+    // 2. Laço Principal do Jogo (Game Loop)
     int opcao;
+    int venceu = 0;
+    
     do {
         // Exibe o mapa atual
         exibirMapa(mapa, NUM_TERRITORIOS);
+        
+        // Exibe a missão atual
+        printf("\n");
+        exibirMissao(missao);
         
         // Exibe o menu de opções
         exibirMenuPrincipal();
@@ -80,9 +108,33 @@ int main() {
             case 1:
                 faseDeAtaque(mapa, NUM_TERRITORIOS);
                 break;
-            case 0:
-                printf("🏳️  Encerrando o jogo. Até a próxima batalha!\n");
+                
+            case 2:
+                // Verifica se o jogador cumpriu a missão
+                if (verificarVitoria(mapa, NUM_TERRITORIOS, missao, corJogador)) {
+                    printf("╔════════════════════════════════════════════════════════════════╗\n");
+                    printf("║                    🎉 VITÓRIA! 🎉                              ║\n");
+                    printf("╠════════════════════════════════════════════════════════════════╣\n");
+                    printf("║  Parabéns! Você completou sua missão com sucesso!             ║\n");
+                    printf("║  O exército %s dominou o mundo!                         ║\n", corJogador);
+                    printf("╚════════════════════════════════════════════════════════════════╝\n");
+                    venceu = 1;
+                    opcao = 0; // Encerra o jogo
+                } else {
+                    printf("╔════════════════════════════════════════════════════════════════╗\n");
+                    printf("║                  MISSÃO AINDA NÃO CUMPRIDA                     ║\n");
+                    printf("╠════════════════════════════════════════════════════════════════╣\n");
+                    printf("║  Continue lutando para completar sua missão!                  ║\n");
+                    printf("╚════════════════════════════════════════════════════════════════╝\n");
+                }
                 break;
+                
+            case 0:
+                if (!venceu) {
+                    printf("🏳️  Encerrando o jogo. Até a próxima batalha!\n");
+                }
+                break;
+                
             default:
                 printf("❌ Opção inválida! Tente novamente.\n");
         }
@@ -95,7 +147,7 @@ int main() {
         
     } while (opcao != 0);
     
-    // Libera a memória alocada
+    // 3. Limpeza
     liberarMemoria(mapa);
     
     return 0;
@@ -117,41 +169,26 @@ Territorio* alocarMapa(int quantidade) {
 }
 
 /**
- * cadastrarTerritorios()
- * Solicita ao usuário os dados de cada território e preenche o vetor.
+ * inicializarTerritorios()
+ * Preenche os dados iniciais de cada território no mapa automaticamente.
+ * Esta função modifica o mapa passado por referência (ponteiro).
  * Parâmetros:
- *   - territorios[]: vetor de territórios a ser preenchido (passado por referência)
- *   - quantidade: número de territórios a cadastrar
+ *   - territorios[]: vetor de territórios a ser preenchido
+ *   - quantidade: número de territórios a inicializar
  */
-void cadastrarTerritorios(Territorio territorios[], int quantidade) {
-    printf("═══════════════════════════════════════════════════════════════\n");
-    printf("           CADASTRO DE TERRITÓRIOS (%d territórios)\n", quantidade);
-    printf("═══════════════════════════════════════════════════════════════\n\n");
+void inicializarTerritorios(Territorio territorios[], int quantidade) {
+    // Dados predefinidos dos territórios
+    const char* nomes[] = {"Brasil", "Argentina", "Peru", "Colômbia", "Chile"};
+    const char* cores[] = {"Azul", "Verde", "Vermelho", "Verde", "Amarelo"};
+    const int tropas[] = {5, 3, 4, 2, 3};
     
-    for (int i = 0; i < quantidade; i++) {
-        printf("▶ Território %d de %d:\n", i + 1, quantidade);
-        printf("─────────────────────────────────\n");
-        
-        // Lê o nome do território
-        printf("  Nome do território: ");
-        fgets(territorios[i].nome, TAM_STRING, stdin);
-        // Remove o '\n' do final da string
-        territorios[i].nome[strcspn(territorios[i].nome, "\n")] = '\0';
-        
-        // Lê a cor do exército
-        printf("  Cor do exército: ");
-        fgets(territorios[i].corExercito, TAM_STRING, stdin);
-        territorios[i].corExercito[strcspn(territorios[i].corExercito, "\n")] = '\0';
-        
-        // Lê o número de tropas
-        printf("  Número de tropas: ");
-        scanf("%d", &territorios[i].numTropas);
-        limparBufferEntrada();
-        
-        printf("\n");
+    for (int i = 0; i < quantidade && i < 5; i++) {
+        strcpy(territorios[i].nome, nomes[i]);
+        strcpy(territorios[i].corExercito, cores[i]);
+        territorios[i].numTropas = tropas[i];
     }
     
-    printf("✓ Todos os territórios foram cadastrados com sucesso!\n\n");
+    printf("✓ Territórios inicializados com sucesso!\n\n");
 }
 
 /**
@@ -190,8 +227,33 @@ void exibirMenuPrincipal() {
     printf("║                        MENU PRINCIPAL                          ║\n");
     printf("╠════════════════════════════════════════════════════════════════╣\n");
     printf("║  [1] ⚔️  Fase de Ataque                                        ║\n");
+    printf("║  [2] 🎯 Verificar Missão                                       ║\n");
     printf("║  [0] 🏳️  Sair do Jogo                                          ║\n");
     printf("╚════════════════════════════════════════════════════════════════╝\n\n");
+}
+
+/**
+ * exibirMissao()
+ * Exibe a descrição da missão atual do jogador com base no ID da missão sorteada.
+ * Parâmetros:
+ *   - idMissao: identificador da missão (1 ou 2)
+ */
+void exibirMissao(int idMissao) {
+    printf("┌────────────────────────────────────────────────────────────────┐\n");
+    printf("│                      📜 MISSÃO SECRETA 📜                       │\n");
+    printf("├────────────────────────────────────────────────────────────────┤\n");
+    
+    if (idMissao == 1) {
+        printf("│  🎯 Objetivo: Destruir o exército VERDE                        │\n");
+        printf("│     → Todos os territórios verdes devem ser conquistados.     │\n");
+    } else if (idMissao == 2) {
+        printf("│  🎯 Objetivo: Conquistar 3 TERRITÓRIOS                         │\n");
+        printf("│     → Domine pelo menos 3 territórios com seu exército.       │\n");
+    } else {
+        printf("│  ⚠️  Missão desconhecida!                                      │\n");
+    }
+    
+    printf("└────────────────────────────────────────────────────────────────┘\n");
 }
 
 /**
@@ -315,6 +377,58 @@ void simularAtaque(Territorio territorios[], int atacante, int defensor) {
  */
 void liberarMemoria(Territorio *territorios) {
     free(territorios);
+}
+
+/**
+ * sortearMissao()
+ * Sorteia e retorna um ID de missão aleatório para o jogador.
+ * Retorna:
+ *   - 1: Destruir o exército Verde
+ *   - 2: Conquistar 3 territórios
+ */
+int sortearMissao() {
+    return (rand() % 2) + 1;  // Retorna 1 ou 2
+}
+
+/**
+ * verificarVitoria()
+ * Verifica se o jogador cumpriu os requisitos de sua missão atual.
+ * Implementa a lógica para cada tipo de missão.
+ * Parâmetros:
+ *   - territorios[]: vetor de territórios (const - apenas leitura)
+ *   - quantidade: número de territórios
+ *   - idMissao: identificador da missão (1 ou 2)
+ *   - corJogador: cor do exército do jogador
+ * Retorna:
+ *   - 1 (verdadeiro) se a missão foi cumprida
+ *   - 0 (falso) caso contrário
+ */
+int verificarVitoria(const Territorio territorios[], int quantidade, int idMissao, const char *corJogador) {
+    if (idMissao == 1) {
+        // Missão 1: Destruir o exército Verde
+        // Verifica se não existe nenhum território verde
+        int existeVerde = 0;
+        for (int i = 0; i < quantidade; i++) {
+            if (strcmp(territorios[i].corExercito, "Verde") == 0) {
+                existeVerde = 1;
+                break;
+            }
+        }
+        return !existeVerde;  // Retorna 1 se NÃO existir verde (missão cumprida)
+        
+    } else if (idMissao == 2) {
+        // Missão 2: Conquistar 3 territórios
+        // Conta quantos territórios pertencem ao jogador
+        int territoriosDoJogador = 0;
+        for (int i = 0; i < quantidade; i++) {
+            if (strcmp(territorios[i].corExercito, corJogador) == 0) {
+                territoriosDoJogador++;
+            }
+        }
+        return territoriosDoJogador >= 3;  // Retorna 1 se tiver 3 ou mais territórios
+    }
+    
+    return 0;  // Missão desconhecida ou não cumprida
 }
 
 /**
